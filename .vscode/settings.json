@@ -1,0 +1,19 @@
+{
+	"editor.formatOnSave": true,
+	"files.autoSave": "onFocusChange",
+	"[javascript]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode",
+		"editor.tabSize": 2,
+		"editor.formatOnSave": true
+	},
+	"[typescript]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode",
+		"editor.tabSize": 2,
+		"editor.formatOnSave": true
+	},
+	"[java]": {
+		"editor.defaultFormatter": "Oracle.oracle-java",
+		"editor.tabSize": 2,
+		"editor.formatOnSave": false
+	}
+}
