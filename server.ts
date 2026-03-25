@@ -2,6 +2,8 @@ import fs from "node:fs";
 import type { File, Level } from "./types";
 import { $, ServerWebSocket } from "bun";
 import chokidar from "chokidar";
+import chalk from "chalk";
+import readline from "node:readline";
 
 const mode = 0o777;
 
@@ -56,6 +58,23 @@ const watcher = chokidar.watch("./levels", {
   persistent: true
 });
 
+const rl = readline.createInterface(process.stdin, process.stdout);
+
+function waitForEnter() {
+  rl.question("", () => {
+    if (currentWs) {
+      currentWs.send(
+        JSON.stringify({
+          type: "run"
+        })
+      );
+      waitForEnter();
+    }
+  });
+}
+
+const instructionsStyle = "<style>div[style] {color: #222222;}</style>";
+
 watcher.on("change", (path) => {
   console.log(`File changed: ${path}`);
   currentWs?.send(
@@ -99,16 +118,20 @@ const server = Bun.serve({
               const filePath = `${dirPath}/${fileName}`;
               if (!fs.existsSync(filePath)) {
                 await Bun.write(filePath, getBanner(filePath) + fileData.text, { mode });
-                await $`chmod -R 777 levels`;
-                console.log(`Wrote file: ${filePath}`);
-              } else {
-                console.log("File already exists: " + filePath);
               }
             }
+            if (levelData.longInstructions) {
+              const instructionsPath = `levels/CurrentInstructions.md`;
+              await Bun.write(instructionsPath, instructionsStyle + "\n" + levelData.longInstructions, { mode });
+            }
+            await $`chmod -R 777 levels`;
           } else {
             console.log("No code on this level");
           }
+          waitForEnter();
           break;
+        case "console":
+          console.log(`${chalk.gray("[out]")} ${data.message}`);
         default:
           break;
       }

@@ -90,6 +90,26 @@ async function save(source) {
   });
 }
 
+function waitForElement(selector) {
+  return new Promise((resolve) => {
+    if (document.querySelector(selector)) {
+      return resolve(document.querySelector(selector));
+    }
+
+    const observer = new MutationObserver((mutations) => {
+      if (document.querySelector(selector)) {
+        observer.disconnect();
+        resolve(document.querySelector(selector));
+      }
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  });
+}
+
 ws.onopen = () => {
   console.log("🔄 Connected to JavaLab Sync");
 
@@ -125,6 +145,8 @@ ws.onmessage = (message) => {
         //location.reload();
       });
       break;
+    case "run":
+      document.querySelector("#testButton").click();
     default:
       console.log("🔄 Received message of unknown type ", msg);
       break;
@@ -132,5 +154,21 @@ ws.onmessage = (message) => {
 };
 
 window.syncSocket = ws;
+
+const consoleSelector = "div.javalab-console div";
+
+let consoleMessages = [];
+
+waitForElement(consoleSelector).then((consoleElm) => {
+  const observer = new MutationObserver(function (mutations) {
+    mutations.forEach(function (mutation) {
+      for (var i = 0; i < mutation.addedNodes.length; i++) {
+        consoleMessages.push(mutation.addedNodes[i]);
+        ws.send(JSON.stringify({ type: "console", message: mutation.addedNodes[i].innerText }));
+      }
+    });
+  });
+  observer.observe(consoleElm, { childList: true, subtree: false });
+});
 
 console.log("🔄 Loaded JavaLab Sync Client%c", "font-size: 50px;");
