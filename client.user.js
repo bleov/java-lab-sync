@@ -15,6 +15,8 @@ let lastData;
 const ws = new WebSocket("wss://jlsync.code.org");
 const packageRegex = /package ([a-zA-Z0-9]+.)+;\n/;
 
+let config = {};
+
 function checkFilePath(path) {
   const inputParts = path.split("/");
   const pathParts = location.pathname.split("/");
@@ -110,6 +112,11 @@ function waitForElement(selector) {
   });
 }
 
+function runTests() {
+  ws.send(JSON.stringify({ type: "log", message: "Running tests..." }));
+  document.querySelector("#testButton").click();
+}
+
 ws.onopen = () => {
   console.log("🔄 Connected to JavaLab Sync");
 
@@ -138,15 +145,27 @@ ws.onmessage = (message) => {
         return;
       }
       console.log("🔄 ", fileName, " changed");
+      ws.send(JSON.stringify({ type: "log", message: `update: ${fileName}` }));
       const source = window.appOptions.getCode();
       source[fileName].text = msg.content.replace(packageRegex, "");
       console.log(source);
       save(source).then(() => {
-        //location.reload();
+        if (config.auto_reload) {
+          location.reload();
+          return;
+        }
+        if (config.auto_test) {
+          runTests();
+        }
       });
       break;
     case "run":
-      document.querySelector("#testButton").click();
+      runTests();
+      break;
+    case "config":
+      config = msg.config;
+      console.log("🔄 Received config from sever: ", msg.config);
+      break;
     default:
       console.log("🔄 Received message of unknown type ", msg);
       break;
@@ -157,15 +176,15 @@ window.syncSocket = ws;
 
 const consoleSelector = "div.javalab-console div";
 
-let consoleMessages = [];
-
 waitForElement(consoleSelector).then((consoleElm) => {
   const observer = new MutationObserver(function (mutations) {
     mutations.forEach(function (mutation) {
-      for (var i = 0; i < mutation.addedNodes.length; i++) {
-        consoleMessages.push(mutation.addedNodes[i]);
-        ws.send(JSON.stringify({ type: "console", message: mutation.addedNodes[i].innerText }));
-      }
+      if (mutation.addedNodes.length == 0) return;
+      const node = mutation.addedNodes[0];
+      if (!node || !node.innerText || node.id == "console-input") return;
+      if (node.querySelector && node.querySelector("#console-input")) return;
+      console.log(node.innerText);
+      ws.send(JSON.stringify({ type: "console", message: node.innerText }));
     });
   });
   observer.observe(consoleElm, { childList: true, subtree: false });

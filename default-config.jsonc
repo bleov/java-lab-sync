@@ -1,0 +1,9 @@
+{
+  // Automatically run level tests when a file is modified
+  "auto_test": false,
+  // Automatically reload the page when a file is modified
+  // Keeps the built-in editor up to date but is slow and incompatible with auto_test
+  "auto_reload": false,
+  // Trim blank lines from forwarded console output
+  "trim_output": false
+}

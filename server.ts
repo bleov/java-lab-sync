@@ -1,13 +1,25 @@
 import fs from "node:fs";
-import type { File, Level } from "./types";
+import type { Config, File, Level } from "./types";
 import { $, ServerWebSocket } from "bun";
 import chokidar from "chokidar";
 import chalk from "chalk";
 import readline from "node:readline";
+import JSONC from "jsonc-simple-parser";
 
 const mode = 0o777;
 
 let currentWs: ServerWebSocket | null = null;
+
+if (!fs.existsSync("./config.jsonc")) {
+  if (!fs.existsSync("./default-config.jsonc")) {
+    console.error(chalk.redBright("Neither a config.jsonc or default-config.jsonc file was not found."));
+    process.exit(1);
+  }
+  console.log("Creating default config");
+  fs.copyFileSync("./default-config.jsonc", "./config.jsonc");
+  await $`chmod 777 config.jsonc`;
+}
+const config: Config = JSONC.parse(fs.readFileSync("./config.jsonc", "utf-8"));
 
 if (!fs.existsSync("./levels")) {
   fs.mkdirSync("./levels", { recursive: true, mode });
@@ -76,7 +88,9 @@ function waitForEnter() {
 const instructionsStyle = "<style>div[style] {color: #222222;}</style>";
 
 watcher.on("change", (path) => {
-  console.log(`File changed: ${path}`);
+  if (path.endsWith("CurrentInstructions.md")) {
+    return;
+  }
   currentWs?.send(
     JSON.stringify({
       type: "change",
@@ -131,10 +145,24 @@ const server = Bun.serve({
           waitForEnter();
           break;
         case "console":
-          console.log(`${chalk.gray("[out]")} ${data.message}`);
+          if (config.trim_output) {
+            if (data.message.trim() === "") {
+              return;
+            }
+          }
+          console.log(`${chalk.gray("[output]")} ${data.message}`);
+          break;
+        case "log":
+          console.log(`${chalk.gray("[client]")} ${data.message}`);
+          break;
         default:
           break;
       }
+    },
+    async open(ws) {
+      currentWs = ws;
+      ws.send(JSON.stringify({ type: "config", config }));
+      console.log("Connected to client");
     }
   },
   port: 443,
